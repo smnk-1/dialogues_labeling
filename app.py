@@ -3,7 +3,11 @@ import json
 from io import StringIO
 import hashlib
 
-st.set_page_config(layout="wide")
+st.set_page_config(
+    page_title="Dialogue labeling",
+    page_icon="📄",
+    layout="wide"
+)
 
 def get_file_hash(content: str) -> str:
     """Генерирует уникальный хеш содержимого файла"""
@@ -65,7 +69,7 @@ def process_data(data):
     return data
 
 def main():
-    st.title("**Dialogue labeling**")
+    st.title("**Разметка диалогов**")
     
     uploaded_file = st.file_uploader("Загрузите файл JSONL", type=['jsonl'])
     
