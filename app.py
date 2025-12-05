@@ -10,12 +10,16 @@ def get_file_hash(content: str) -> str:
     return hashlib.md5(content.encode()).hexdigest()
 
 def load_data(file_content):
-    """Load data from file content"""
+    """Load data from file content with error handling"""
     data = []
-    for line in file_content.splitlines():
+    for line_num, line in enumerate(file_content.splitlines(), 1):
         line = line.strip()
         if line:
-            data.append(json.loads(line))
+            try:
+                data.append(json.loads(line))
+            except json.JSONDecodeError as e:
+                st.warning(f"⚠️ Строка {line_num} пропущена: некорректный JSON. Ошибка: {str(e)}")
+                continue
     return data
 
 def render_dialog(dialog_text):
@@ -64,16 +68,18 @@ def main():
             
             original_data = load_data(file_content)
             
+            for item in original_data:
+                if item.get('client_status') not in ["new", "current"]:
+                    item['client_status'] = "new"
+                
+                # Исправляем success
+                if item.get('success') not in [0, 1]:
+                    item['success'] = 0
+            
             st.session_state.output_data = original_data.copy()
             st.session_state.current_index = 0
             st.session_state.file_name = uploaded_file.name
             st.session_state.file_hash = file_hash
-            
-            for i, item in enumerate(st.session_state.output_data):
-                if 'client_status' not in item:
-                    st.session_state.output_data[i]['client_status'] = None
-                if 'success' not in item:
-                    st.session_state.output_data[i]['success'] = None
         
         col1, col2 = st.columns([1, 2])
         
@@ -108,15 +114,14 @@ def main():
             
             if st.button("Начать сначала (изменения не сохранятся)", use_container_width=True):
                 original_data = load_data(file_content)
+                for item in original_data:
+                    if item.get('client_status') not in ["new", "current"]:
+                        item['client_status'] = "new"
+                    if item.get('success') not in [0, 1]:
+                        item['success'] = 0
+                
                 st.session_state.output_data = original_data.copy()
                 st.session_state.current_index = 0
-                
-                for i, item in enumerate(st.session_state.output_data):
-                    if 'client_status' not in item:
-                        st.session_state.output_data[i]['client_status'] = None
-                    if 'success' not in item:
-                        st.session_state.output_data[i]['success'] = None
-                
                 st.rerun()
             
             save_current_item()
