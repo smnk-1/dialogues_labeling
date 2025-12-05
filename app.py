@@ -54,6 +54,16 @@ def save_current_item():
             st.session_state.output_data[current_idx]['success'] = new_success
             st.toast("Разметка сохранена!", icon="💾", duration=1)
 
+def process_data(data):
+    """Обрабатывает данные: исправляет некорректные значения"""
+    for item in data:
+        if item.get('client_status') not in ["new", "current"]:
+            item['client_status'] = "new"
+        
+        if item.get('success') not in [0, 1]:
+            item['success'] = 0
+    return data
+
 def main():
     st.title("**Dialogue labeling**")
     
@@ -67,19 +77,16 @@ def main():
             st.session_state.file_hash != file_hash):
             
             original_data = load_data(file_content)
-            
-            for item in original_data:
-                if item.get('client_status') not in ["new", "current"]:
-                    item['client_status'] = "new"
-                
-                # Исправляем success
-                if item.get('success') not in [0, 1]:
-                    item['success'] = 0
-            
-            st.session_state.output_data = original_data.copy()
+            processed_data = process_data(original_data.copy()) 
+
+            st.session_state.output_data = processed_data
             st.session_state.current_index = 0
             st.session_state.file_name = uploaded_file.name
             st.session_state.file_hash = file_hash
+        
+        if len(st.session_state.output_data) == 0:
+            st.warning("Все диалоги были удалены. Загрузите новый файл для продолжения работы.")
+            st.stop()
         
         col1, col2 = st.columns([1, 2])
         
@@ -114,13 +121,9 @@ def main():
             
             if st.button("Начать сначала (изменения не сохранятся)", use_container_width=True):
                 original_data = load_data(file_content)
-                for item in original_data:
-                    if item.get('client_status') not in ["new", "current"]:
-                        item['client_status'] = "new"
-                    if item.get('success') not in [0, 1]:
-                        item['success'] = 0
+                processed_data = process_data(original_data.copy())
                 
-                st.session_state.output_data = original_data.copy()
+                st.session_state.output_data = processed_data
                 st.session_state.current_index = 0
                 st.rerun()
             
@@ -142,7 +145,22 @@ def main():
         with col2:
             current_item = st.session_state.output_data[st.session_state.current_index]
             
-            st.subheader(f"Диалог #{current_item['id']}")
+            header_col, delete_col = st.columns([4, 1])
+            with header_col:
+                st.subheader(f"Диалог #{current_item['id']}")
+            with delete_col:
+                delete_key = f"delete_{st.session_state.current_index}_{current_item['id']}"
+                if st.button("✖ Удалить", key=delete_key, use_container_width=True):
+                    save_current_item()
+                    
+                    deleted_id = st.session_state.output_data[st.session_state.current_index]['id']
+                    del st.session_state.output_data[st.session_state.current_index]
+                    
+                    if st.session_state.current_index >= len(st.session_state.output_data) and len(st.session_state.output_data) > 0:
+                        st.session_state.current_index = len(st.session_state.output_data) - 1
+                    
+                    st.toast(f"Диалог #{deleted_id} удален!", icon="🗑️", duration=2)
+                    st.rerun()
             
             st.markdown("""
             <style>
@@ -242,3 +260,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
