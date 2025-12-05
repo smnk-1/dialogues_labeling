@@ -1,9 +1,8 @@
 import streamlit as st
 import json
 from io import StringIO
-import hashlib  # Для надежного сравнения файлов
+import hashlib
 
-# Установим широкий макет страницы
 st.set_page_config(layout="wide")
 
 def get_file_hash(content: str) -> str:
@@ -39,7 +38,6 @@ def save_current_item():
     client_status_key = f'client_status_{current_idx}'
     success_key = f'success_{current_idx}'
     
-    # Сохраняем только если виджеты уже отрендерены
     if client_status_key in st.session_state and success_key in st.session_state:
         st.session_state.output_data[current_idx]['client_status'] = st.session_state[client_status_key]
         st.session_state.output_data[current_idx]['success'] = st.session_state[success_key]
@@ -47,35 +45,28 @@ def save_current_item():
 def main():
     st.title("**Dialogue labeling**")
     
-    # File upload
     uploaded_file = st.file_uploader("Загрузите файл JSONL", type=['jsonl'])
     
     if uploaded_file is not None:
-        # Read the uploaded file content
         file_content = uploaded_file.getvalue().decode("utf-8")
         file_hash = get_file_hash(file_content)
         
-        # Initialize or update session state when a new file is uploaded
         if ('file_hash' not in st.session_state or 
             st.session_state.file_hash != file_hash):
             
-            # Load original data
             original_data = load_data(file_content)
             
-            # Initialize session state with a copy of the data
             st.session_state.output_data = original_data.copy()
             st.session_state.current_index = 0
             st.session_state.file_name = uploaded_file.name
-            st.session_state.file_hash = file_hash  # Сохраняем хеш для сравнения
+            st.session_state.file_hash = file_hash
             
-            # ВАЖНО: Инициализируем поля ТОЛЬКО если они отсутствуют
             for i, item in enumerate(st.session_state.output_data):
                 if 'client_status' not in item:
                     st.session_state.output_data[i]['client_status'] = None
                 if 'success' not in item:
                     st.session_state.output_data[i]['success'] = None
         
-        # Create two columns with wider layout
         col1, col2 = st.columns([1, 2])
         
         with col1:
@@ -105,17 +96,13 @@ def main():
             1. (Критерии в разработке)
             """)
             
-            # Show current progress in the left column
             st.write(f"**Прогресс:** {st.session_state.current_index + 1} / {len(st.session_state.output_data)}")
             
-            # Add reset button at the bottom of the left column
             if st.button("Начать сначала (изменения не сохранятся)", use_container_width=True):
-                # Перезагружаем данные из исходного содержимого
                 original_data = load_data(file_content)
                 st.session_state.output_data = original_data.copy()
                 st.session_state.current_index = 0
                 
-                # Инициализируем поля ТОЛЬКО если отсутствуют
                 for i, item in enumerate(st.session_state.output_data):
                     if 'client_status' not in item:
                         st.session_state.output_data[i]['client_status'] = None
@@ -124,10 +111,8 @@ def main():
                 
                 st.rerun()
             
-            # Перед скачиванием ВСЕГДА сохраняем текущие изменения
-            save_current_item()  # Критически важно!
+            save_current_item() 
             
-            # Download button for current state
             output_filename = f"labeled_{uploaded_file.name}"
             output_data_str = ""
             for item in st.session_state.output_data:
@@ -142,13 +127,10 @@ def main():
             )
         
         with col2:
-            # Get current item
             current_item = st.session_state.output_data[st.session_state.current_index]
             
-            # Display current dialog in a scrollable container
             st.subheader(f"Диалог #{current_item['id']}")
             
-            # Create a scrollable area for the dialog with custom styling
             st.markdown("""
             <style>
             .dialog-container {
@@ -200,15 +182,12 @@ def main():
             </script>
             """, unsafe_allow_html=True)
             
-            # Render dialog
             dialog_html = render_dialog(current_item['text'])
             st.markdown(dialog_html, unsafe_allow_html=True)
             
-            # Создаем виджеты с автоматическим сохранением при изменении
             client_status_options = ["new", "current"]
             success_options = [0, 1]
             
-            # Получаем текущие значения с учетом возможных изменений
             current_client_status = current_item.get('client_status', None)
             current_success = current_item.get('success', None)
             
@@ -220,13 +199,12 @@ def main():
             if current_success in success_options:
                 success_index = success_options.index(current_success)
             
-            # Селектбоксы с автоматическим сохранением через on_change
             client_status = st.selectbox(
                 "Статус клиента",
                 options=client_status_options,
                 index=client_status_index,
                 key=f'client_status_{st.session_state.current_index}',
-                on_change=save_current_item  # Автоматическое сохранение!
+                on_change=save_current_item
             )
             
             success = st.selectbox(
@@ -234,33 +212,31 @@ def main():
                 options=success_options,
                 index=success_index,
                 key=f'success_{st.session_state.current_index}',
-                on_change=save_current_item  # Автоматическое сохранение!
+                on_change=save_current_item
             )
             
-            # Форма теперь только для навигации
             with st.form(key=f'nav_form_{st.session_state.current_index}'):
                 submit_button = st.form_submit_button(label='Продолжить', use_container_width=True)
             
             if submit_button:
-                # Переход вперед (сохранение уже выполнено через on_change)
                 if st.session_state.current_index < len(st.session_state.output_data) - 1:
                     st.session_state.current_index += 1
                     st.rerun()
                 else:
                     st.success("Все диалоги размечены!")
             
-            # Navigation buttons с сохранением перед переходом
+
             nav_col1, nav_col2 = st.columns(2)
             
             with nav_col1:
                 if st.button("Предыдущий", use_container_width=True, disabled=st.session_state.current_index == 0):
-                    save_current_item()  # Критически важно!
+                    save_current_item()
                     st.session_state.current_index -= 1
                     st.rerun()
             
             with nav_col2:
                 if st.button("Следующий", use_container_width=True, disabled=st.session_state.current_index >= len(st.session_state.output_data) - 1):
-                    save_current_item()  # Критически важно!
+                    save_current_item()
                     st.session_state.current_index += 1
                     st.rerun()
 
