@@ -33,14 +33,22 @@ def render_dialog(dialog_text):
     return dialog_html
 
 def save_current_item():
-    """Сохраняет текущие значения из виджетов в output_data"""
+    """Сохраняет текущие значения из виджетов в output_data + показывает уведомление"""
     current_idx = st.session_state.current_index
     client_status_key = f'client_status_{current_idx}'
     success_key = f'success_{current_idx}'
     
     if client_status_key in st.session_state and success_key in st.session_state:
-        st.session_state.output_data[current_idx]['client_status'] = st.session_state[client_status_key]
-        st.session_state.output_data[current_idx]['success'] = st.session_state[success_key]
+        prev_status = st.session_state.output_data[current_idx].get('client_status')
+        prev_success = st.session_state.output_data[current_idx].get('success')
+        
+        new_status = st.session_state[client_status_key]
+        new_success = st.session_state[success_key]
+        
+        if prev_status != new_status or prev_success != new_success:
+            st.session_state.output_data[current_idx]['client_status'] = new_status
+            st.session_state.output_data[current_idx]['success'] = new_success
+            st.toast("Разметка сохранена!", icon="💾", duration=1)
 
 def main():
     st.title("**Dialogue labeling**")
@@ -70,7 +78,7 @@ def main():
         col1, col2 = st.columns([1, 2])
         
         with col1:
-            st.subheader("ИНСТРУКРЦИЯ ПО РАЗМЕТКЕ")
+            st.subheader("ИНСТРУКЦИЯ ПО РАЗМЕТКЕ")
             st.markdown("""
             **client_status:**
             - **new** - новый клиент, который впервые обращается
@@ -83,17 +91,17 @@ def main():
             **ШАГИ:**
             1. Прочитайте диалог внимательно
             2. Оцените статус клиента
-            3. Оцените успешность разговора согласно **криетриям**
+            3. Оцените успешность разговора согласно **критериям**
             4. Отметьте соответствующие значения в меню
-            5. Нажмите "Продолжить"
-            6. По завершении разметки скачайте файл
-                        
-            **КРИТЕРИИ УСПЕШНОСТИ ДЛЯ НОВОГО КЛИЕНТА:**
-            1. Подписание договора 
-            2. Оплата обучения   
+            5. Используйте кнопки навигации для перехода
             
-            **КРИТЕРИИ УСПЕШНОСТИ ДЛЯ ДЕЙСТВУЮЩЕГО КЛИЕНТА:**
-            1. (Критерии в разработке)
+            **КРИТЕРИИ УСПЕШНОСТИ:**
+            Для нового клиента:
+            - Подписание договора
+            - Оплата обучения
+            
+            Для действующего клиента:
+            - (Критерии в разработке)
             """)
             
             st.write(f"**Прогресс:** {st.session_state.current_index + 1} / {len(st.session_state.output_data)}")
@@ -111,7 +119,7 @@ def main():
                 
                 st.rerun()
             
-            save_current_item() 
+            save_current_item()
             
             output_filename = f"labeled_{uploaded_file.name}"
             output_data_str = ""
@@ -175,9 +183,7 @@ def main():
                     dialogContainer.scrollTop = 0;
                 }
             }
-            // Reset scroll when page loads
             resetScroll();
-            // Also reset scroll after Streamlit updates
             setTimeout(resetScroll, 300);
             </script>
             """, unsafe_allow_html=True)
@@ -215,27 +221,16 @@ def main():
                 on_change=save_current_item
             )
             
-            with st.form(key=f'nav_form_{st.session_state.current_index}'):
-                submit_button = st.form_submit_button(label='Продолжить', use_container_width=True)
-            
-            if submit_button:
-                if st.session_state.current_index < len(st.session_state.output_data) - 1:
-                    st.session_state.current_index += 1
-                    st.rerun()
-                else:
-                    st.success("Все диалоги размечены!")
-            
-
             nav_col1, nav_col2 = st.columns(2)
             
             with nav_col1:
-                if st.button("Предыдущий", use_container_width=True, disabled=st.session_state.current_index == 0):
-                    save_current_item()
+                if st.button("← Предыдущий", use_container_width=True, disabled=st.session_state.current_index == 0):
+                    save_current_item() 
                     st.session_state.current_index -= 1
                     st.rerun()
             
             with nav_col2:
-                if st.button("Следующий", use_container_width=True, disabled=st.session_state.current_index >= len(st.session_state.output_data) - 1):
+                if st.button("Следующий →", use_container_width=True, disabled=st.session_state.current_index >= len(st.session_state.output_data) - 1):
                     save_current_item()
                     st.session_state.current_index += 1
                     st.rerun()
